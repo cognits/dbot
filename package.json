@@ -1,6 +1,6 @@
 {
   "name": "taskbot",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "author": "Sebastian Ibarguen <s@cognits.co>",
   "description": "A simple helpful robot for your Company",
