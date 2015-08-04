@@ -6,20 +6,89 @@
   var client = zendesk.createClient({
     username:  's@cognits.co',
     token:     'WRSeQ0RomdSaWko4jv2I9XimGokh2EvKPHGHi5ct',
-    remoteUri: 'https://remote.zendesk.com/api/v2',
-    oauth: true
+    remoteUri: 'https://cognits.zendesk.com/api/v2/',
+    oauth: false
   });
+
+  function zendeskError(err) {
+    console.log(err);
+    // process.exit(-1);
+  }
 
 
   module.exports = function(robot) {
 
     robot.hear(/new task/i, function(res) {
 
-      var welcomeMessages = ["Creating new task for your awesomeness"];
+      console.log(res);
+      var user = res.message.user;
+      var userState = robot.brain.get(user.id + 'State');
 
-      return res.send(res.random(welcomeMessages));
+      if (userState == 'active') {
+        return res.send('You already have an active task, close it by typing <close task>');
+
+      } else if (userState == 'idle' | userState == undefined) {
+
+        // Set user state to active. Only one task per user at a given time.
+        robot.brain.set( user.id + 'State', 'active');
+        return res.send('Would love to ' + user.name + '. Please describe the task');
+      }
+      return;
     });
 
+    robot.hear(/description|summary(.*)/i, function(res) {
+
+      var user = res.message.user;
+      var userState = robot.brain.get(user.id + 'State');
+
+      var description = res.match[1];
+
+      if (userState == 'idle' | userState == undefined) {
+        return res.send('Hi, first create a new task by typing <new task>');
+
+      } else if (userState == 'active') {
+
+        // Set user state to active. Only one task per user at a given time.
+        var ticket = {
+               "ticket":
+                 {
+                   "subject":"My printer is on fire!",
+                   "comment": { "body": "The smoke is very colorful." }
+                 }
+             };
+
+        client.tickets.create(ticket,  function(err, req, result) {
+          if (err) return zendeskError(err);
+          console.log(JSON.stringify(result, null, 2, true));
+        });
+      }
+      return;
+    });
+
+    robot.hear(/close task/i, function(res) {
+
+      var user = res.message.user;
+      var userState = robot.brain.get(user.id + 'State');
+
+      if (userState == 'idle') {
+        return res.send('Hi, first create a new task by typing <new task>');
+
+      } else if (userState == 'active' | userState == undefined) {
+
+        // Set user state to active. Only one task per user at a given time.
+        robot.brain.set( user.id + 'State', 'idle');
+        return res.send('Success ' + user.name + '! Task closed.');
+      }
+      return;
+    });
+
+    robot.hear(/status/i, function(res) {
+
+      var user = res.message.user;
+      var userState = robot.brain.get(user.id + 'State');
+
+      return res.send('Hi ' + user.name + '. The current status is: ' + userState)
+    });
 
   //   var annoyIntervalId, answer, enterReplies, leaveReplies, lulz;
   //
@@ -119,7 +188,7 @@
   //     return res.reply('zzzzz');
   //   });
 
-  
+
   };
 
 }).call(this);
