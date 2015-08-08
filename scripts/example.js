@@ -10,9 +10,28 @@
     oauth: false
   });
 
+  client.tickets.getComments(33, function(err, req, res){
+    console.log("GET COMMENTS");
+    console.log(err);
+    console.log(req);
+    console.log(res[0].comments);
+  });
+
+  client.tickets.exportAudit(33, function(err, req, res){
+    console.log("EXPORT AUDITS");
+    console.log(err);
+    console.log(req);
+    console.log(res[2].events);
+  });
+
   function zendeskError(err) {
     console.log(err);
     // process.exit(-1);
+  }
+
+
+  function auditTicket(ticketId) {
+
   }
 
 
@@ -36,12 +55,14 @@
       return;
     });
 
-    robot.hear(/description|summary(.*)/i, function(res) {
+    robot.hear(/i need|get me|send me|do (.*)/i, function(res) {
 
       var user = res.message.user;
+      var slack = res.message.rawMessage;
       var userState = robot.brain.get(user.id + 'State');
 
-      var description = res.match[1];
+      var description = res.match[0];
+      console.log(res.match);
 
       if (userState == 'idle' | userState == undefined) {
         return res.send('Hi, first create a new task by typing <new task>');
@@ -52,8 +73,11 @@
         var ticket = {
                "ticket":
                  {
-                   "subject":"My printer is on fire!",
-                   "comment": { "body": "The smoke is very colorful." }
+                   "subject": "Desing Task for " + user.name + " -" + slack.user + "-" + slack.team,
+                   "comment": { "body": description },
+                   "type": "task",
+                   "priority": "normal",
+                   "tags": ["design", "" + slack.user, "" + slack.team, "" + user.real_name, "" + user.email_address]
                  }
              };
 
@@ -78,6 +102,10 @@
         // Set user state to active. Only one task per user at a given time.
         robot.brain.set( user.id + 'State', 'idle');
         return res.send('Success ' + user.name + '! Task closed.');
+
+        return setInterval(function() {
+          return res.send("Who you calling 'slow'?");
+        }, 60 * 1000);
       }
       return;
     });
