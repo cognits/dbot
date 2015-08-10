@@ -86,7 +86,7 @@
         // check for UNFURL images and other medias and send them
         // like attachments
         if (res.message.rawMessage.upload) {
-          user.tmp_ticket.ticket.comment.body += | "IMAGE: " + res.message.rawMessage.file.url;
+          user.tmp_ticket.ticket.comment.body += "| IMAGE: " + res.message.rawMessage.file.url;
         } else {
           // Add new messages to task description
           user.tmp_ticket.ticket.comment.body += " | " + text;
@@ -124,15 +124,25 @@
           // Update user object in Robot brain
           // and remove tmp ticket
           delete user.tmp_ticket;
-          user.state = 'idle';
+          user.state = 'waiting';
+
+          user.lastChatTime = new Date.now();
           robot.brain.set(slackUser.id, user);
 
           return setInterval(function() {
+            console.log("Creating interval calls for ticket: " + result.id);
 
             client.tickets.getComments(result.id, function(err, req, res){
-              var comments = res[0].comments;
 
+              if(err) {
+                console.log(err);
+                return;
+              }
+
+              var comments = res[0].comments;
               if (comments.length <= 1) return;
+
+
               console.log(comments);
 
               return res.send('' + comments);
