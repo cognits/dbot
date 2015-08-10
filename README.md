@@ -12,6 +12,13 @@ has, etc!
 [hubot]: http://hubot.github.com
 [generator-hubot]: https://github.com/github/generator-hubot
 
+
+## Feature list
+- Check tone of task (urgent or normal)
+- Permit more complex and accurate user interactions (not happy with work, complaint)
+- Emergency real person chatting override
+
+
 ### Running taskbot Locally
 
 You can test your hubot by running the following, however some plugins will not
