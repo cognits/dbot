@@ -10,19 +10,14 @@
     oauth: false
   });
 
-  client.tickets.getComments(33, function(err, req, res){
-    console.log("GET COMMENTS");
-    console.log(err);
-    console.log(req);
-    console.log(res[0].comments);
-  });
 
-  client.tickets.exportAudit(33, function(err, req, res){
-    console.log("EXPORT AUDITS");
-    console.log(err);
-    console.log(req);
-    console.log(res[2].events);
-  });
+  //
+  // client.tickets.exportAudit(33, function(err, req, res){
+  //   console.log("EXPORT AUDITS");
+  //   console.log(err);
+  //   console.log(req);
+  //   console.log(res[2].events);
+  // });
 
   function zendeskError(err) {
     console.log(err);
@@ -30,100 +25,140 @@
   }
 
 
-  function auditTicket(ticketId) {
-
+  function sortCommentsByDate(a, b) {
+    if (a.created_at > b.created_at) return 1;
+    if (a.created_at < b.created_at) return -1;
   }
 
 
   module.exports = function(robot) {
 
-    robot.hear(/new task/i, function(res) {
 
-      console.log(res);
-      var user = res.message.user;
-      var userState = robot.brain.get(user.id + 'State');
+    robot.hear(/(.*)/i, function(res) {
 
-      if (userState == 'active') {
-        return res.send('You already have an active task, close it by typing <close task>');
+      console.log("GETTING GENERAL MESSAGE");
 
-      } else if (userState == 'idle' | userState == undefined) {
-
-        // Set user state to active. Only one task per user at a given time.
-        robot.brain.set( user.id + 'State', 'active');
-        return res.send('Would love to ' + user.name + '. Please describe the task');
-      }
-      return;
-    });
-
-    robot.hear(/i need|get me|send me|do (.*)/i, function(res) {
-
-      var user = res.message.user;
+      var slackUser = res.message.user;
       var slack = res.message.rawMessage;
-      var userState = robot.brain.get(user.id + 'State');
 
-      var description = res.match[0];
-      console.log(res.match);
+      var user = robot.brain.get(slackUser.id);
+      if (!user) user = slackUser;
 
-      if (userState == 'idle' | userState == undefined) {
-        return res.send('Hi, first create a new task by typing <new task>');
+      console.log("User: " + user.name + " is talking to me.");
 
-      } else if (userState == 'active') {
+      // var r = /i need|get me|send me|do (.*)/i;
 
-        // Set user state to active. Only one task per user at a given time.
+      // Save all user message to a variable
+      var text = res.match[0];
+      console.log("heard: " + text);
+
+      // Check if message is not to close task, if so, return and do nothing.
+      // This is handled in another robot.hear method
+      if (text.match(/close task/i)) {
+        return;
+      }
+
+      // User state flow. If null or idle, change to active and create ticket
+      // for zendesk
+      if (user.state == null | user.state == 'idle') {
+        console.log("user is idle");
+
         var ticket = {
                "ticket":
                  {
                    "subject": "Desing Task for " + user.name + " -" + slack.user + "-" + slack.team,
-                   "comment": { "body": description },
+                   "comment": { "body": text },
                    "type": "task",
                    "priority": "normal",
                    "tags": ["design", "" + slack.user, "" + slack.team, "" + user.real_name, "" + user.email_address]
                  }
              };
 
-        client.tickets.create(ticket,  function(err, req, result) {
-          if (err) return zendeskError(err);
-          console.log(JSON.stringify(result, null, 2, true));
-        });
+        // Now user becomes active
+        user.state = "active";
+        user.tmp_ticket = ticket;
+        robot.brain.set(user.id, user);
+
+        return res.send('Hi ' + user.name + '! I\'ve started a new task for you. Share all the files relevant to the task and a detailed description of what you need done.');
+
+      } else if (user.state == 'active') {
+        console.log("user is idle");
+
+        // TODO check for UNFURL images and other medias and send them
+        // like attachments
+
+        // Add new messages to task description
+        user.tmp_ticket.ticket.comment.body += " | " + text;
+
+        return res.send('Processed. Anything else I need to keep in mind (I mean memory)? If that\'s all, just type <close task> and I\'ll start working on it immediatley.');
       }
       return;
     });
 
+
     robot.hear(/close task/i, function(res) {
 
-      var user = res.message.user;
-      var userState = robot.brain.get(user.id + 'State');
+      var slackUser = res.message.user;
+      var slack = res.message.rawMessage;
 
-      if (userState == 'idle') {
-        return res.send('Hi, first create a new task by typing <new task>');
+      var user = robot.brain.get(slackUser.id);
 
-      } else if (userState == 'active' | userState == undefined) {
+      // User state cannot be idle when closing a task.
+      if (user.state == 'idle') {
+        return res.send('I have no open tasks right now. If you want to start a new one, just tell me what you need.');
 
-        // Set user state to active. Only one task per user at a given time.
-        robot.brain.set( user.id + 'State', 'idle');
+      } else if (user.state == 'active') {
+        console.log("Closing task for: " + user.name);
+
+        // Save ticket in Zendesk
+        client.tickets.create(user.tmp_ticket,  function(err, req, result) {
+          if (err) return zendeskError(err);
+
+          if (user.tickets) {
+            user.tickets.push(result);
+          } else {
+            user.tickets = [result];
+          }
+
+          // Update user object in Robot brain
+          // and remove tmp ticket
+          delete user.tmp_ticket;
+          user.state = 'idle';
+          robot.brain.set(slackUser.id, user);
+
+          return setInterval(function() {
+
+            client.tickets.getComments(ticketId, function(err, req, res){
+              var comments = res[0].comments;
+
+              if (comments.length <= 1) return;
+              console.log(comments);
+
+              return res.send('' + comments);
+            });
+
+          }, 60 * 1000);
+        });
+
         return res.send('Success ' + user.name + '! Task closed.');
-
-        return setInterval(function() {
-          return res.send("Who you calling 'slow'?");
-        }, 60 * 1000);
       }
       return;
     });
 
     robot.hear(/status/i, function(res) {
 
-      var user = res.message.user;
-      var userState = robot.brain.get(user.id + 'State');
+      var slackUser = res.message.user;
+      var user = robot.brain.get(slackUser.id);
 
-      return res.send('Hi ' + user.name + '. The current status is: ' + userState)
+      return res.send('Hi ' + user.name + '. The current status is: ' + user.state)
     });
 
   //   var annoyIntervalId, answer, enterReplies, leaveReplies, lulz;
   //
   //
-    robot.hear(/badger/i, function(res) {
-      return res.send("Badgers? BADGERS? WE DON'T NEED NO STINKIN BADGERS");
-    });
+    // robot.hear(/badger/i, function(res) {
+    //   return res.send("Badgers? BADGERS? WE DON'T NEED NO STINKIN BADGERS");
+    // });
   //
   //   robot.respond(/open the (.*) doors/i, function(res) {
   //     var doorType;
