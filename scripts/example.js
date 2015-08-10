@@ -45,7 +45,6 @@
       if (!user) user = slackUser;
 
       console.log("User: " + user.name + " is talking to me.");
-
       // var r = /i need|get me|send me|do (.*)/i;
 
       // Save all user message to a variable
@@ -82,14 +81,16 @@
         return res.send('Hi ' + user.name + '! I\'ve started a new task for you. Share all the files relevant to the task and a detailed description of what you need done.');
 
       } else if (user.state == 'active') {
-        console.log("user is idle");
+        console.log("user is active");
 
-        // TODO check for UNFURL images and other medias and send them
+        // check for UNFURL images and other medias and send them
         // like attachments
-
-        // Add new messages to task description
-        user.tmp_ticket.ticket.comment.body += " | " + text;
-
+        if (res.message.rawMessage.upload) {
+          user.tmp_ticket.ticket.comment.body += | "IMAGE: " + res.message.rawMessage.file.url;
+        } else {
+          // Add new messages to task description
+          user.tmp_ticket.ticket.comment.body += " | " + text;
+        }
         return res.send('Processed. Anything else I need to keep in mind (I mean memory)? If that\'s all, just type <close task> and I\'ll start working on it immediatley.');
       }
       return;
