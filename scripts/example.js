@@ -131,8 +131,8 @@
           user.lastChatTime = new Date();
           robot.brain.set(slackUser.id, user);
 
+          console.log("Creating interval calls for ticket: " + result.id);
           return setInterval(function() {
-            console.log("Creating interval calls for ticket: " + result.id);
 
             // TODO check callback function return perameters don't conflict with
             // higher scope variables!
@@ -147,10 +147,17 @@
               if (comments.length <= 1) return;
 
               // TODO check comments time to only send latest messages to user
-
-              console.log(comments);
-
-              return res.send('' + comments);
+              var commentsToSend = [];
+              var d;
+              for (var i = 0; i < comments.length; i++) {
+                d = new Date(comments[i].created_at);
+                if (d > user.lastChatTime) {
+                  commentsToSend.push(d);
+                  res.send(comments[i].body);
+                }
+              }
+              user.lastChatTime = new Date();
+              return;
             });
 
           }, 30 * 1000);
