@@ -128,7 +128,7 @@
 
           return setInterval(function() {
 
-            client.tickets.getComments(ticketId, function(err, req, res){
+            client.tickets.getComments(result.id, function(err, req, res){
               var comments = res[0].comments;
 
               if (comments.length <= 1) return;
