@@ -93,6 +93,8 @@
         }
         return res.send('Processed. Anything else I need to keep in mind (I mean memory)? If that\'s all, just type <close task> and I\'ll start working on it immediatley.');
       }
+      // TODO still missing complete workflow when user is in WAITING state
+
       return;
     });
 
@@ -126,29 +128,32 @@
           delete user.tmp_ticket;
           user.state = 'waiting';
 
-          user.lastChatTime = new Date.now();
+          user.lastChatTime = new Date();
           robot.brain.set(slackUser.id, user);
 
           return setInterval(function() {
             console.log("Creating interval calls for ticket: " + result.id);
 
-            client.tickets.getComments(result.id, function(err, req, res){
+            // TODO check callback function return perameters don't conflict with
+            // higher scope variables!
+            client.tickets.getComments(result.id, function(err, req, comments){
 
               if(err) {
                 console.log(err);
                 return;
               }
 
-              var comments = res[0].comments;
+              var comments = comments[0].comments;
               if (comments.length <= 1) return;
 
+              // TODO check comments time to only send latest messages to user
 
               console.log(comments);
 
               return res.send('' + comments);
             });
 
-          }, 60 * 1000);
+          }, 30 * 1000);
         });
 
         return res.send('Success ' + user.name + '! Task closed.');
