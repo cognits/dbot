@@ -14,16 +14,32 @@ has, etc!
 
 
 ## To Do's
+
+### Doing
+- Integrate Parse to save all conversation
+
+### Done
+
 - Correctly send attachments from Zendesk to Slack
 - Implement "satisfied with care" for a given task
 
+### Finished
+
+
+### Backlog
+
+- Verify bot interaction in Slack Channels and Groups
+(will probably need to change from `hear` to `respond`?)
+
 - Implement "Waiting" user flow
 - Let two tasks be created at same time. Related to implementing "Waiting" user flow.
-- Integrate Parse to save all conversation
 
 - Check tone of task (urgent or normal)
 - Permit more complex and accurate user interactions (not happy with work, complaint)
+  - Vary questions depending on design task (infograph, presentation)
+
 - Emergency real person chatting override
+
 
 
 ### Running taskbot Locally

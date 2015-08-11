@@ -4,6 +4,11 @@
   var BOT_ID = 1201577778;
 
   var zendesk = require('node-zendesk');
+  var Parse = require('parse').Parse;
+
+  Parse.initialize("74qfiTL7ri6y46c1BO1tMdrMGw04eGLR7DfeJWxB", "rNg0E8Mg3uzPP95sHYaLBfMZ8TAknFs8ySCkw9dT");
+
+  var Chat = Parse.object.extend("Chat");
 
   var client = zendesk.createClient({
     username:  'bot@cognits.io',
@@ -44,6 +49,18 @@
       // Save all user message to a variable
       var text = res.match[0];
       console.log("heard: " + text);
+
+      var chat = new Chat();
+      chat.set("user", user);
+      chat.set("message", res);
+
+      chat.save(null, {
+        success: function(chat) {
+        },
+        error: function(chat, error) {
+          console.log(error);
+        }
+      });
 
       // Check if message is not to close task, if so, return and do nothing.
       // This is handled in another robot.hear method

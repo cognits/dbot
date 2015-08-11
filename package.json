@@ -12,7 +12,8 @@
     "hubot-redis-brain": "0.0.3",
     "hubot-scripts": "^2.16.1",
     "hubot-slack": "^3.3.0",
-    "node-zendesk": "^1.1.4"
+    "node-zendesk": "^1.1.4",
+    "parse": "^1.5.0"
   },
   "engines": {
     "node": "0.10.x"
