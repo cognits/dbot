@@ -53,7 +53,7 @@
 
       // Check if message is not to close task, if so, return and do nothing.
       // This is handled in another robot.hear method
-      if (text.match(/close task/i)) {
+      if (text.match(/close task|status|good job/i)) {
         return;
       }
 
@@ -92,8 +92,13 @@
           user.tmp_ticket.ticket.comment.body += " | " + text;
         }
         return res.send('Processed. Anything else I need to keep in mind (I mean memory)? If that\'s all, just type <close task> and I\'ll start working on it immediatley.');
+      } else if (user.state == 'waiting') {
+        // TODO still missing complete workflow when user is in WAITING state
+
+
+
       }
-      // TODO still missing complete workflow when user is in WAITING state
+
 
       return;
     });
@@ -131,8 +136,8 @@
           user.lastChatTime = new Date();
           robot.brain.set(slackUser.id, user);
 
+          console.log("Creating interval calls for ticket: " + result.id);
           return setInterval(function() {
-            console.log("Creating interval calls for ticket: " + result.id);
 
             // TODO check callback function return perameters don't conflict with
             // higher scope variables!
@@ -146,19 +151,37 @@
               var comments = comments[0].comments;
               if (comments.length <= 1) return;
 
-              // TODO check comments time to only send latest messages to user
+              // check comments time to only send latest messages to user
+              var d, comment;
+              for (var i = 0; i < comments.length; i++) {
+                comment = comments[i];
 
-              console.log(comments);
+                d = new Date(comment.created_at);
+                if (d > user.lastChatTime) {
 
-              return res.send('' + comments);
+                  if (comment.attachments.length > 0 ) {
+                    for (var j = 0; j < comment.attachments.length; j++) {
+                      res.send(comment.attachments[j].content_url);
+                    }
+                  }
+                  res.send(comment.body);
+                }
+              }
+              user.lastChatTime = new Date();
+              return;
             });
 
           }, 30 * 1000);
         });
 
         return res.send('Success ' + user.name + '! Task closed.');
+
       }
       return;
+    });
+
+    robot.hear(/good job|great job|i'm satisfied with my care/i, function(res) {
+
     });
 
     robot.hear(/status/i, function(res) {
