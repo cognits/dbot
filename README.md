@@ -13,7 +13,14 @@ has, etc!
 [generator-hubot]: https://github.com/github/generator-hubot
 
 
-## Feature list
+## To Do's
+- Correctly send attachments from Zendesk to Slack
+- Implement "satisfied with care" for a given task
+
+- Implement "Waiting" user flow
+- Let two tasks be created at same time. Related to implementing "Waiting" user flow.
+- Integrate Parse to save all conversation
+
 - Check tone of task (urgent or normal)
 - Permit more complex and accurate user interactions (not happy with work, complaint)
 - Emergency real person chatting override
