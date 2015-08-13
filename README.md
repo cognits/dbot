@@ -28,10 +28,16 @@ has, etc!
 
 ### Backlog
 
+- Improve Bot's messages to design User Flow
+  - Add intro first time message "Hi, this is how you use me"
+  - Add "Working hard right now..."
+
 - Verify bot interaction in Slack Channels and Groups
 (will probably need to change from `hear` to `respond`?)
-
 - Implement "Waiting" user flow
+- Add tests
+- Automate testing
+- Automate deployment
 - Let two tasks be created at same time. Related to implementing "Waiting" user flow.
 
 - Check tone of task (urgent or normal)
@@ -39,7 +45,12 @@ has, etc!
   - Vary questions depending on design task (infograph, presentation)
 
 - Emergency real person chatting override
+- Bot learns about users. Ability learning curve (teaches new functionalities after some time)
 
+- Have memory of history of tasks (taskbot get me the history)
+- Learn about users and teams (brands, preferences...)
+
+- Progressive mastery design (while users learn to use taskbot, more features are unlocked)
 
 
 ### Running taskbot Locally
