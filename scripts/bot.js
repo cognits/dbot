@@ -60,7 +60,7 @@
 
       // Check if message is not to close task, if so, return and do nothing.
       // This is handled in another robot.hear method
-      if (text.match(/close task|status|good job/i)) {
+      if (text.match(/start working|close task|status|good job| ok | thanks|thanks|ok/i)) {
         return;
       }
 
@@ -102,7 +102,7 @@
           // Add new messages to task description
           user.tmp_ticket.ticket.comment.body += " | " + text;
         }
-        return res.send('Processed. Anything else I need to keep in mind (I mean memory)? If that\'s all, just type _*close task*_ and I\'ll start working on it immediatley.');
+        return res.send('Processed. Anything else I need to keep in memmory? If that\'s all, just type _*start working*_ and I\'ll get to it.');
       } else if (user.state == 'waiting') {
         // TODO still missing complete workflow when user is in WAITING state
 
@@ -122,7 +122,7 @@
     });
 
 
-    robot.hear(/close task/i, function(res) {
+    robot.hear(/start working/i, function(res) {
 
       var slackUser = res.message.user;
       var slack = res.message.rawMessage;
