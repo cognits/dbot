@@ -85,7 +85,11 @@
         user.tmp_ticket = ticket;
         robot.brain.set(user.id, user);
 
-        return res.send('Hi ' + user.name + '! I\'ve started a new task for you. Share all the files relevant to the task and a detailed description of what you need done.');
+        res.send('Hi ' + user.name + '! I\'m ready to *start working*.');
+        res.send('Just let me know what you need.');
+        res.send('I always find it helpfulto include: (1) relevant assets and links, (2) description, (3), target audience (4), design alignments (5) other things I should keep in memory?');
+
+        return res.send('');
 
       } else if (user.state == 'active') {
         console.log("user is active");
@@ -98,7 +102,7 @@
           // Add new messages to task description
           user.tmp_ticket.ticket.comment.body += " | " + text;
         }
-        return res.send('Processed. Anything else I need to keep in mind (I mean memory)? If that\'s all, just type <close task> and I\'ll start working on it immediatley.');
+        return res.send('Processed. Anything else I need to keep in mind (I mean memory)? If that\'s all, just type _*close task*_ and I\'ll start working on it immediatley.');
       } else if (user.state == 'waiting') {
         // TODO still missing complete workflow when user is in WAITING state
 
@@ -192,14 +196,13 @@
                   res.send(comment.body);
                 }
               }
-
               return;
             });
 
           }, 30 * 1000);
         });
 
-        return res.send('Success ' + user.name + '! Task closed.');
+        return res.send('Got it ' + user.name + '! Will start working on it. Will keep you posted on updates. If you forgot to tell me something important, just tell me anytime.');
 
       }
       return;
@@ -212,11 +215,13 @@
 
       var user = robot.brain.get(slackUser.id);
 
-      if (user.tickets.length > 0) {
-        clearInterval(user.tickets[0].ticketIntervalId)
+      if (user.tickets != undefined && user.tickets.length > 0) {
+        clearInterval(user.tickets[0].ticketIntervalId);
+        user.tickets = [];
+        user.status = 'idle';
       }
 
-
+      return res.send('');
     });
 
     robot.hear(/status/i, function(res) {
@@ -224,7 +229,7 @@
       var slackUser = res.message.user;
       var user = robot.brain.get(slackUser.id);
 
-      return res.send('Hi ' + user.name + '. The current status is: ' + user.state)
+      return res.send('Hi ' + user.name + '. The current status is: ' + user.state);
     });
 
   //   var annoyIntervalId, answer, enterReplies, leaveReplies, lulz;

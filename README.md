@@ -16,7 +16,9 @@ has, etc!
 ## To Do's
 
 ### Doing
-- Integrate Parse to save all conversation
+- Improve Bot's messages to design User Flow
+  - Add intro first time message "Hi, this is how you use me"
+  - Add "Working hard right now..."
 
 ### Done
 
@@ -28,9 +30,7 @@ has, etc!
 
 ### Backlog
 
-- Improve Bot's messages to design User Flow
-  - Add intro first time message "Hi, this is how you use me"
-  - Add "Working hard right now..."
+- Integrate Parse to save all conversation
 
 - Verify bot interaction in Slack Channels and Groups
 (will probably need to change from `hear` to `respond`?)
