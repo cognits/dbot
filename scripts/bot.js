@@ -5,10 +5,13 @@
 
   var zendesk = require('node-zendesk');
 
-  // var Parse = require('parse').Parse;
-  //
-  // Parse.initialize("74qfiTL7ri6y46c1BO1tMdrMGw04eGLR7DfeJWxB", "rNg0E8Mg3uzPP95sHYaLBfMZ8TAknFs8ySCkw9dT");
-  // var Chat = Parse.Object.extend("Chat");
+  var keenIO = require('keen.io');
+
+  Configure instance. Only projectId and writeKey are required to send data.
+  var keen = keenIO.configure({
+      projectId: process.env['KEEN_PROJECT_ID'],
+      writeKey: process.env['KEEN_WRITE_KEY']
+  });
 
 
   var client = zendesk.createClient({
@@ -50,13 +53,23 @@
       var text = res.match[0];
       console.log("heard: " + text);
 
-      // var chat = new Chat();
-      // chat.save(
-      //   {"messageObject": res.message.rawMessage,
-      //   "slackUser": slackUser
-      //   }).then(function(object) {
-      //     console.log(object);
-      // });
+      var chat = { user: user.name,
+                  slack_user: slack.user,
+                  slack_team: slack.team,
+                  text: text,
+                  keen: {
+                    timestamp: new Date().toISOString()
+                  }
+                };
+
+      keen.addEvent("chat", chat, function(err, res) {
+          if (err) {
+              console.log("Oh no, an error!");
+          } else {
+              console.log("Hooray, it worked!");
+          }
+      });
+
 
       // Check if message is not to close task, if so, return and do nothing.
       // This is handled in another robot.hear method
@@ -202,6 +215,25 @@
           }, 30 * 1000);
         });
 
+        var ticketData = { user: user.name,
+                    slack_user: slack.user,
+                    slack_team: slack.team,
+                    text: text,
+                    ticket_id: result.id,
+
+                    keen: {
+                      timestamp: new Date().toISOString()
+                    }
+                  };
+
+        keen.addEvent("task_creation", ticketData, function(err, res) {
+            if (err) {
+                console.log("Oh no, an error!");
+            } else {
+                console.log("Hooray, it worked!");
+            }
+        });
+
         return res.send('Got it ' + user.name + '! Will start working on it. Will keep you posted on updates. If you forgot to tell me something important, just tell me anytime.');
 
       }
@@ -216,6 +248,26 @@
       var user = robot.brain.get(slackUser.id);
 
       if (user.tickets != undefined && user.tickets.length > 0) {
+
+        // Analytics
+        var taskDone = { user: user.name,
+                    slack_user: slack.user,
+                    slack_team: slack.team,
+                    ticket_id: user.tickets[0].id,
+                    keen: {
+                      timestamp: new Date().toISOString()
+                    }
+                  };
+
+        keen.addEvent("task_done", ticketData, function(err, res) {
+            if (err) {
+                console.log("Oh no, an error!");
+            } else {
+                console.log("Hooray, it worked!");
+            }
+        });
+
+        // Clear interval call and remove variables from bots memory
         clearInterval(user.tickets[0].ticketIntervalId);
         user.tickets = [];
         user.status = 'idle';
