@@ -26,11 +26,11 @@ has, etc!
 - Implement "satisfied with care" for a given task
 
 ### Finished
-
+- Integrate Parse to save all conversation
+- Integrate Keen io for Analytics
 
 ### Backlog
 
-- Integrate Parse to save all conversation
 
 - Verify bot interaction in Slack Channels and Groups
 (will probably need to change from `hear` to `respond`?)
@@ -52,6 +52,8 @@ has, etc!
 
 - Progressive mastery design (while users learn to use taskbot, more features are unlocked)
 
+- Implement dynamic conversations with SETS of messages
+- Schedule repeating Tasks ("Taskbot I will need conversion images every Tuesday")
 
 ### Running taskbot Locally
 
