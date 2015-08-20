@@ -3,14 +3,55 @@
 
   var BOT_ID = 1201577778;
 
+  // Configure instance. Only projectId and writeKey are required to send data.
+  var keenIO = require('keen.io');
+
+
+  var keen = keenIO.configure({
+      projectId: "54ee0af2672e6c11f4d128e8", //process.env['KEEN_PROJECT_ID'],
+      writeKey: "7bd5a8b49747b99bac755544aefc9ed0dbd14b2abe51253fa6d1012c42872c58f602e025615daa2dd2c4c0cd4dc01cd6cecd82856751fc4103817bdffa884e3c097bcfe7dba0390af0fb86060ff49574f8e06748c86a5efb3b9d6b98f3643597a322d43bf4dfce3680997b86dc8545a3" //process.env['KEEN_WRITE_KEY']
+  });
+
+  // Configue Parse
+  var Parse = require('parse').Parse;
+  Parse.initialize("74qfiTL7ri6y46c1BO1tMdrMGw04eGLR7DfeJWxB", "rNg0E8Mg3uzPP95sHYaLBfMZ8TAknFs8ySCkw9dT");
+
+  var botMessages = {};
+  Parse.Config.get().then(function(config) {
+      console.log("Yay! Config was fetched from the server.");
+
+      botMessages = { hi: config.get("hiMessage"),
+                      intro: config.get("introMessage"),
+                      processing: config.get("proccesingMessage"),
+                      waiting: config.get("waitingMessage"),
+                      noOpenTasks: config.get("noOpenTasksMessage"),
+                      startWorking: config.get("startWorkingMessage"),
+                      taskCompleted: config.get("taskCompletedMessage")
+                    };
+
+    }, function(error) {
+      console.log("Failed to fetch. Using Cached Config.");
+
+      var config = Parse.Config.current();
+      var hiMessage = config.get("hiMessage");
+
+      // if cached parse config didn't work, have default values
+      if (hiMessage === undefined) {
+        botMessages = { hi: "Hi",
+                        intro: "I always find it helpfulto include: (1) relevant assets and links, (2) description, (3), target audience (4), design alignments (5) other things I should keep in memory?",
+                        processing: "Processed. Anything else I need to keep in memory? If that\'s all, just type _*start working*_ and I\'ll get to it.",
+                        waiting: "Will keep it in mind",
+                        noOpenTasks: "I have no open tasks right now. If you want to start a new one, just tell me what you need.",
+                        startWorking: "Got it! Will start working on it. Will keep you posted on updates. If you forgot to tell me something important, just tell me anytime.",
+                        taskCompleted: "Yeah, high-five!"
+                      };
+      }
+      console.log("botMessages = " + botMessages);
+    });
+
+
+  //Configure Zendesk
   var zendesk = require('node-zendesk');
-
-  // var Parse = require('parse').Parse;
-  //
-  // Parse.initialize("74qfiTL7ri6y46c1BO1tMdrMGw04eGLR7DfeJWxB", "rNg0E8Mg3uzPP95sHYaLBfMZ8TAknFs8ySCkw9dT");
-  // var Chat = Parse.Object.extend("Chat");
-
-
   var client = zendesk.createClient({
     username:  'bot@cognits.io',
     token:     'WRSeQ0RomdSaWko4jv2I9XimGokh2EvKPHGHi5ct',
@@ -50,13 +91,23 @@
       var text = res.match[0];
       console.log("heard: " + text);
 
-      // var chat = new Chat();
-      // chat.save(
-      //   {"messageObject": res.message.rawMessage,
-      //   "slackUser": slackUser
-      //   }).then(function(object) {
-      //     console.log(object);
-      // });
+      var chat = { user: user.name,
+                  slack_user: slack.user,
+                  slack_team: slack.team,
+                  text: text,
+                  keen: {
+                    timestamp: new Date().toISOString()
+                  }
+                };
+
+      keen.addEvent("chat", chat, function(err, keenResponse) {
+          if (err) {
+              console.log("Oh no, an error!");
+          } else {
+              console.log("Hooray, it worked!");
+          }
+      });
+
 
       // Check if message is not to close task, if so, return and do nothing.
       // This is handled in another robot.hear method
@@ -85,11 +136,8 @@
         user.tmp_ticket = ticket;
         robot.brain.set(user.id, user);
 
-        res.send('Hi ' + user.name + '! I\'m ready to *start working*.');
-        res.send('Just let me know what you need.');
-        res.send('I always find it helpfulto include: (1) relevant assets and links, (2) description, (3), target audience (4), design alignments (5) other things I should keep in memory?');
-
-        return res.send('');
+        res.send(res.random(botMessages.hi) + " " + user.name + '!');
+        res.send(res.random(botMessages.intro));
 
       } else if (user.state == 'active') {
         console.log("user is active");
@@ -102,7 +150,7 @@
           // Add new messages to task description
           user.tmp_ticket.ticket.comment.body += " | " + text;
         }
-        return res.send('Processed. Anything else I need to keep in memmory? If that\'s all, just type _*start working*_ and I\'ll get to it.');
+        return res.send(res.random(botMessages.processing));
       } else if (user.state == 'waiting') {
         // TODO still missing complete workflow when user is in WAITING state
 
@@ -114,7 +162,7 @@
              };
 
         client.tickets.update(user.tickets[0].id, ticket, function(){
-          res.send('Will keep it in mind');
+          res.send(res.random(botMessages.waiting));
         });
       }
 
@@ -131,7 +179,7 @@
 
       // User state cannot be idle when closing a task.
       if (user.state == 'idle') {
-        return res.send('I have no open tasks right now. If you want to start a new one, just tell me what you need.');
+        return res.send(res.random(botMessages.noOpenTasks));
 
       } else if (user.state == 'active') {
         console.log("Closing task for: " + user.name);
@@ -202,7 +250,26 @@
           }, 30 * 1000);
         });
 
-        return res.send('Got it ' + user.name + '! Will start working on it. Will keep you posted on updates. If you forgot to tell me something important, just tell me anytime.');
+        var ticketData = { user: user.name,
+                    slack_user: slack.user,
+                    slack_team: slack.team,
+                    text: text,
+                    ticket_id: result.id,
+
+                    keen: {
+                      timestamp: new Date().toISOString()
+                    }
+                  };
+
+        keen.addEvent("task_creation", ticketData, function(err, res) {
+            if (err) {
+                console.log("Oh no, an error!");
+            } else {
+                console.log("Hooray, it worked!");
+            }
+        });
+
+        return res.send(res.random(botMessages.startWorking));
 
       }
       return;
@@ -216,12 +283,32 @@
       var user = robot.brain.get(slackUser.id);
 
       if (user.tickets != undefined && user.tickets.length > 0) {
+
+        // Analytics
+        var taskDone = { user: user.name,
+                    slack_user: slack.user,
+                    slack_team: slack.team,
+                    ticket_id: user.tickets[0].id,
+                    keen: {
+                      timestamp: new Date().toISOString()
+                    }
+                  };
+
+        keen.addEvent("task_done", ticketData, function(err, res) {
+            if (err) {
+                console.log("Oh no, an error!");
+            } else {
+                console.log("Hooray, it worked!");
+            }
+        });
+
+        // Clear interval call and remove variables from bots memory
         clearInterval(user.tickets[0].ticketIntervalId);
         user.tickets = [];
         user.status = 'idle';
       }
 
-      return res.send('');
+      return res.send(res.random(botMessages.taskCompleted));
     });
 
     robot.hear(/status/i, function(res) {
