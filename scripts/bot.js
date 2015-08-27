@@ -5,8 +5,6 @@
 
   // Configure instance. Only projectId and writeKey are required to send data.
   var keenIO = require('keen.io');
-
-
   var keen = keenIO.configure({
       projectId: "54ee0af2672e6c11f4d128e8", //process.env['KEEN_PROJECT_ID'],
       writeKey: "7bd5a8b49747b99bac755544aefc9ed0dbd14b2abe51253fa6d1012c42872c58f602e025615daa2dd2c4c0cd4dc01cd6cecd82856751fc4103817bdffa884e3c097bcfe7dba0390af0fb86060ff49574f8e06748c86a5efb3b9d6b98f3643597a322d43bf4dfce3680997b86dc8545a3" //process.env['KEEN_WRITE_KEY']
@@ -15,68 +13,79 @@
   // Configue Parse
   var Parse = require('parse').Parse;
   Parse.initialize("74qfiTL7ri6y46c1BO1tMdrMGw04eGLR7DfeJWxB", "rNg0E8Mg3uzPP95sHYaLBfMZ8TAknFs8ySCkw9dT");
+  var parseMessage = Parse.Object.extend("Message");
 
-  var botMessages = {};
-  Parse.Config.get().then(function(config) {
-      console.log("Yay! Config was fetched from the server.");
+  function updateTeam(res){
 
-      botMessages = { hi: config.get("hiMessage"),
-                      intro: config.get("introMessage"),
-                      processing: config.get("proccesingMessage"),
-                      waiting: config.get("waitingMessage"),
-                      noOpenTasks: config.get("noOpenTasksMessage"),
-                      startWorking: config.get("startWorkingMessage"),
-                      taskCompleted: config.get("taskCompletedMessage")
-                    };
+    var teamData = {
+      name: res.rawMessage.team,
+      teamId: res.rawMessage.team
+    };
 
-    }, function(error) {
-      console.log("Failed to fetch. Using Cached Config.");
+    var team = Parse.Object.extend("Team");
+    team.save(teamData, {
+      success: function(teamData) {
 
-      var config = Parse.Config.current();
-      var hiMessage = config.get("hiMessage");
-
-      // if cached parse config didn't work, have default values
-      if (hiMessage === undefined) {
-        botMessages = { hi: "Hi",
-                        intro: "I always find it helpfulto include: (1) relevant assets and links, (2) description, (3), target audience (4), design alignments (5) other things I should keep in memory?",
-                        processing: "Processed. Anything else I need to keep in memory? If that\'s all, just type _*start working*_ and I\'ll get to it.",
-                        waiting: "Will keep it in mind",
-                        noOpenTasks: "I have no open tasks right now. If you want to start a new one, just tell me what you need.",
-                        startWorking: "Got it! Will start working on it. Will keep you posted on updates. If you forgot to tell me something important, just tell me anytime.",
-                        taskCompleted: "Yeah, high-five!"
-                      };
+        robot.log("Parse Message saved correctly");
+      },
+      error: function(error){
+        robot.log(error);
       }
-      console.log("botMessages = " + botMessages);
     });
+  };
+
+  function updateChannels(res){
+
+    var channelsData = {
+      name: res.rawMessage.channel,
+      teamId: res.rawMessage.team,
+      channelId: res.rawMessage.channel
+    };
+
+    var Channel = Parse.Object.extend("Channel");
+
+    var query = new Parse.Query(Channel);
+    query.equalTo("channelId")
 
 
-  //Configure Zendesk
-  var zendesk = require('node-zendesk');
-  var client = zendesk.createClient({
-    username:  'bot@cognits.io',
-    token:     'WRSeQ0RomdSaWko4jv2I9XimGokh2EvKPHGHi5ct',
-    remoteUri: 'https://cognits.zendesk.com/api/v2/',
-    oauth: false
-  });
 
+    channel.save(channelsData, {
+      success: function(channelsData) {
 
-  function zendeskError(err) {
-    console.log(err);
-    // process.exit(-1);
-  }
-
-
-  function sortCommentsByDate(a, b) {
-    if (a.created_at > b.created_at) return 1;
-    if (a.created_at < b.created_at) return -1;
-  }
+        robot.log("Parse Message saved correctly");
+      },
+      error: function(error){
+        robot.log(error);
+      }
+    });
+  };
 
 
   module.exports = function(robot) {
 
+    setInterval(function() {
+
+// TODO Save team and channels info in Parse.
+      robot.http("https://slack.com/api/channels.list?token=" + process.env['HUBOT_SLACK_TOKEN'])
+        .header('Accept', 'application/json')
+        .get()(function(err, res, body) {
+
+          var data = JSON.parse(body);
+
+
+
+          if (err) {
+            robot.log("Encountered an error :( " + err);
+          }
+      });
+
+
+    },
+    10 * 60 * 1000);
+
     robot.hear(/(.*)/i, function(res) {
 
-      console.log("GETTING GENERAL MESSAGE");
+      robot.log("GETTING GENERAL MESSAGE");
 
       var slackUser = res.message.user;
       var slack = res.message.rawMessage;
@@ -84,231 +93,55 @@
       var user = robot.brain.get(slackUser.id);
       if (!user) user = slackUser;
 
-      console.log("User: " + user.name + " is talking to me.");
-      // var r = /i need|get me|send me|do (.*)/i;
+      robot.log("User: " + user.name + " is talking to me.");
 
       // Save all user message to a variable
       var text = res.match[0];
-      console.log("heard: " + text);
+      robot.log("heard: " + text);
 
-      var chat = { user: user.name,
-                  slack_user: slack.user,
-                  slack_team: slack.team,
-                  text: text,
-                  keen: {
-                    timestamp: new Date().toISOString()
-                  }
+      var message = { from: user.name,
+                  channelId: slack.user,
+                  teamId: slack.team,
+                  text: text
                 };
 
-      keen.addEvent("chat", chat, function(err, keenResponse) {
+      keen.addEvent("message", message, function(err, keenResponse) {
           if (err) {
-              console.log("Oh no, an error!");
+              robot.log(err);
           } else {
-              console.log("Hooray, it worked!");
+              robot.log("Keen worked!");
           }
       });
 
+      parseMessage.save(message, {
+        success: function(parseMessage) {
 
-      // Check if message is not to close task, if so, return and do nothing.
-      // This is handled in another robot.hear method
-      if (text.match(/start working|close task|status|good job| ok | thanks|thanks|ok/i)) {
-        return;
-      }
-
-      // User state flow. If null or idle, change to active and create ticket
-      // for zendesk
-      if (user.state == null | user.state == 'idle') {
-        console.log("user is idle");
-
-        var ticket = {
-               "ticket":
-                 {
-                   "subject": "Desing Task for " + user.name + " -" + slack.user + "-" + slack.team,
-                   "comment": { "body": text },
-                   "type": "task",
-                   "priority": "normal",
-                   "tags": ["design", "" + slack.user, "" + slack.team, "" + user.real_name, "" + user.email_address]
-                 }
-             };
-
-        // Now user becomes active
-        user.state = "active";
-        user.tmp_ticket = ticket;
-        robot.brain.set(user.id, user);
-
-        res.send(res.random(botMessages.hi) + " " + user.name + '!');
-        res.send(res.random(botMessages.intro));
-
-      } else if (user.state == 'active') {
-        console.log("user is active");
-
-        // check for UNFURL images and other medias and send them
-        // like attachments
-        if (res.message.rawMessage.upload) {
-          user.tmp_ticket.ticket.comment.body += "| IMAGE: " + res.message.rawMessage.file.url;
-        } else {
-          // Add new messages to task description
-          user.tmp_ticket.ticket.comment.body += " | " + text;
+          robot.log("Parse Message saved correctly");
+        },
+        error: function(error){
+          robot.log(error);
         }
-        return res.send(res.random(botMessages.processing));
-      } else if (user.state == 'waiting') {
-        // TODO still missing complete workflow when user is in WAITING state
-
-        var ticket = {
-               "ticket":
-                 {
-                   "comment": { "body": text }
-                 }
-             };
-
-        client.tickets.update(user.tickets[0].id, ticket, function(){
-          res.send(res.random(botMessages.waiting));
-        });
-      }
+      });
 
       return;
     });
 
+    robot.router.post('/subot/:channel', function(req, res) {
+      var data, channel, message;
+      channel = req.params.channel;
+      data = JSON.parse(req.body.payload);
+      message = data.message;
 
-    robot.hear(/start working/i, function(res) {
-
-      var slackUser = res.message.user;
-      var slack = res.message.rawMessage;
-
-      var user = robot.brain.get(slackUser.id);
-
-      // User state cannot be idle when closing a task.
-      if (user.state == 'idle') {
-        return res.send(res.random(botMessages.noOpenTasks));
-
-      } else if (user.state == 'active') {
-        console.log("Closing task for: " + user.name);
-
-        // Save ticket in Zendesk
-        client.tickets.create(user.tmp_ticket,  function(err, req, result) {
-          if (err) return zendeskError(err);
-
-          if (user.tickets) {
-            user.tickets.push(result);
-          } else {
-            user.tickets = [result];
-          }
-
-          // Update user object in Robot brain
-          // and remove tmp ticket
-          delete user.tmp_ticket;
-          user.state = 'waiting';
-
-          user.lastChatTime = new Date();
-
-          // Save to robot brain
-          robot.brain.set(slackUser.id, user);
-
-          console.log("Creating interval calls for ticket: " + result.id);
-          return user.tickets[0].ticketIntervalId =  setInterval(function() {
-
-            // TODO check callback function return perameters don't conflict with
-            // higher scope variables!
-            client.tickets.getComments(result.id, function(err, req, commentsArray) {
-
-              if(err) {
-                console.log(err);
-                return;
-              }
-
-              // Check if there are comments, if not, return
-              var comments = commentsArray[0].comments;
-              if (comments.length <= 1) return;
-
-              // check comments time to only send latest messages to user
-              var d, comment;
-              for (var i = 0; i < comments.length; i++) {
-                comment = comments[i];
-
-                // Compare date of last chat with date of comments in Zendesk.
-                // to only send those created after last comment.
-                d = new Date(comment.created_at);
-                if (d > user.lastChatTime && comment.author_id != BOT_ID) {
-
-                  // If comment has attachments, send the links
-                  if (comment.attachments.length > 0) {
-                    for (var j = 0; j < comment.attachments.length; j++) {
-                      res.send(comment.attachments[j].content_url);
-                    }
-                  }
-
-                  // Set most recent chant time to now
-                  user.lastChatTime = new Date();
-
-                  // Send comment text, even if there were attachements
-                  res.send(comment.body);
-                }
-              }
-              return;
-            });
-
-          }, 30 * 1000);
-        });
-
-        var ticketData = { user: user.name,
-                    slack_user: slack.user,
-                    slack_team: slack.team,
-                    text: text,
-                    ticket_id: result.id,
-
-                    keen: {
-                      timestamp: new Date().toISOString()
-                    }
-                  };
-
-        keen.addEvent("task_creation", ticketData, function(err, res) {
-            if (err) {
-                console.log("Oh no, an error!");
-            } else {
-                console.log("Hooray, it worked!");
-            }
-        });
-
-        return res.send(res.random(botMessages.startWorking));
-
-      }
-      return;
+      // Send message to respective channel
+      robot.messageRoom(channel, message);
+      return res.send('OK');
     });
 
-    robot.hear(/good job|great job|i'm satisfied with my care/i, function(res) {
-
-      var slackUser = res.message.user;
-      var slack = res.message.rawMessage;
-
-      var user = robot.brain.get(slackUser.id);
-
-      if (user.tickets != undefined && user.tickets.length > 0) {
-
-        // Analytics
-        var taskDone = { user: user.name,
-                    slack_user: slack.user,
-                    slack_team: slack.team,
-                    ticket_id: user.tickets[0].id,
-                    keen: {
-                      timestamp: new Date().toISOString()
-                    }
-                  };
-
-        keen.addEvent("task_done", ticketData, function(err, res) {
-            if (err) {
-                console.log("Oh no, an error!");
-            } else {
-                console.log("Hooray, it worked!");
-            }
-        });
-
-        // Clear interval call and remove variables from bots memory
-        clearInterval(user.tickets[0].ticketIntervalId);
-        user.tickets = [];
-        user.status = 'idle';
+    robot.error(function(err, res) {
+      robot.logger.error("DOES NOT COMPUTE");
+      if (res != null) {
+        return res.reply("DOES NOT COMPUTE");
       }
-
-      return res.send(res.random(botMessages.taskCompleted));
     });
 
     robot.hear(/status/i, function(res) {
